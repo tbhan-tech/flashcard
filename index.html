@@ -17,6 +17,9 @@
       --danger: #b91c1c;
       --success: #047857;
       --shadow: 0 18px 50px rgba(31, 41, 55, 0.14);
+      --question-font-size: 71pt;
+      --answer-font-size: 46pt;
+      --preview-question-font-size: 38pt;
     }
 
     * {
@@ -87,7 +90,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
       align-items: end;
     }
@@ -229,7 +232,7 @@
       white-space: pre-wrap;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      font-size: clamp(28px, 4.5vw, 48px);
+      font-size: clamp(28px, 4.5vw, var(--preview-question-font-size));
       font-weight: 900;
       line-height: 1.35;
       letter-spacing: -0.04em;
@@ -446,7 +449,7 @@
       white-space: pre-wrap;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      font-size: clamp(42px, 6vw, 92px);
+      font-size: clamp(32px, 8vw, var(--question-font-size));
       font-weight: 950;
       line-height: 1.25;
       letter-spacing: -0.055em;
@@ -482,7 +485,7 @@
       white-space: pre-wrap;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      font-size: clamp(30px, 4vw, 58px);
+      font-size: clamp(24px, 7vw, var(--answer-font-size));
       font-weight: 900;
       line-height: 1.35;
     }
@@ -612,7 +615,7 @@
       }
 
       .slide-question {
-        font-size: clamp(34px, 10vw, 58px);
+        font-size: clamp(30px, 12vw, var(--question-font-size));
       }
 
       .slide-actions .slide-action:first-child {
@@ -636,12 +639,22 @@
       <div class="toolbar">
         <label class="field">
           <span>문제 표시 시간(초)</span>
-          <input id="questionSeconds" type="number" min="0.5" max="300" step="0.5" value="3" />
+          <input id="questionSeconds" type="number" min="0.5" max="300" step="0.5" value="2" />
         </label>
 
         <label class="field">
           <span>정답 표시 시간(초)</span>
           <input id="answerSeconds" type="number" min="0.5" max="300" step="0.5" value="3" />
+        </label>
+
+        <label class="field">
+          <span>문제 글자 크기(pt)</span>
+          <input id="questionFontSize" type="number" min="12" max="150" step="1" value="71" />
+        </label>
+
+        <label class="field">
+          <span>정답 글자 크기(pt)</span>
+          <input id="answerFontSize" type="number" min="12" max="120" step="1" value="46" />
         </label>
 
         <label class="check-field">
@@ -762,12 +775,17 @@
       remainingMs: 0,
       paused: false,
       running: false,
-      loadedFileName: ""
+      loadedFileName: "",
+      renderToken: 0
     };
+
+    const imageRequestIds = new WeakMap();
 
     const els = {
       questionSeconds: document.getElementById("questionSeconds"),
       answerSeconds: document.getElementById("answerSeconds"),
+      questionFontSize: document.getElementById("questionFontSize"),
+      answerFontSize: document.getElementById("answerFontSize"),
       skipHeader: document.getElementById("skipHeader"),
       shuffleCards: document.getElementById("shuffleCards"),
       fileInput: document.getElementById("fileInput"),
@@ -814,6 +832,26 @@
       const safe = Number.isFinite(number) ? Math.min(300, Math.max(0.5, number)) : fallback;
       input.value = safe;
       return safe;
+    }
+
+    function clampFontSize(input, minimum, maximum, fallback) {
+      const number = Number(input.value);
+      const safe = Number.isFinite(number)
+        ? Math.min(maximum, Math.max(minimum, Math.round(number)))
+        : fallback;
+
+      input.value = safe;
+      return safe;
+    }
+
+    function applyFontSizes() {
+      const questionSize = clampFontSize(els.questionFontSize, 12, 150, 71);
+      const answerSize = clampFontSize(els.answerFontSize, 12, 120, 46);
+      const previewSize = Math.max(16, Math.round(questionSize * 0.54));
+
+      document.documentElement.style.setProperty("--question-font-size", `${questionSize}pt`);
+      document.documentElement.style.setProperty("--answer-font-size", `${answerSize}pt`);
+      document.documentElement.style.setProperty("--preview-question-font-size", `${previewSize}pt`);
     }
 
     function getXmlElements(parent, localName) {
@@ -1098,7 +1136,8 @@
       const imageCount = state.cards.filter(card => card.image).length;
       els.loadedInfo.textContent =
         `${state.cards.length}개 카드 · 이미지 포함 ${imageCount}개 · ` +
-        `${els.questionSeconds.value}초 후 정답, 정답 ${els.answerSeconds.value}초 표시`;
+        `${els.questionSeconds.value}초 후 정답, 정답 ${els.answerSeconds.value}초 표시 · ` +
+        `문제 ${els.questionFontSize.value}pt / 정답 ${els.answerFontSize.value}pt`;
 
       setStatus(
         `${state.loadedFileName || "엑셀 파일"}에서 ${state.cards.length}개의 카드를 불러왔습니다.`,
@@ -1106,26 +1145,106 @@
       );
     }
 
-    function setImage(imageElement, wrapElement, source, onStateChange) {
-      imageElement.onload = () => {
-        wrapElement.classList.add("visible");
-        if (onStateChange) onStateChange(true);
-      };
+    function clearDisplayedImage(imageElement, wrapElement) {
+      imageElement.onload = null;
+      imageElement.onerror = null;
+      imageElement.removeAttribute("src");
+      wrapElement.classList.remove("visible");
+    }
 
-      imageElement.onerror = () => {
-        wrapElement.classList.remove("visible");
-        imageElement.removeAttribute("src");
-        if (onStateChange) onStateChange(false);
-      };
+    function getImageUrl(source, attempt = 0) {
+      try {
+        const url = new URL(source, document.baseURI);
+
+        // 첫 시도가 실패했을 때에만 캐시를 우회해 다시 요청합니다.
+        if (attempt > 0 && ["http:", "https:"].includes(url.protocol)) {
+          url.searchParams.set("_flash_retry", `${Date.now()}_${attempt}`);
+        }
+
+        return url.href;
+      } catch (error) {
+        return source;
+      }
+    }
+
+    function wait(milliseconds) {
+      return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+    }
+
+    async function setImage(
+      imageElement,
+      wrapElement,
+      source,
+      onStateChange,
+      options = {}
+    ) {
+      const requestId = (imageRequestIds.get(imageElement) || 0) + 1;
+      imageRequestIds.set(imageElement, requestId);
+
+      const isCurrentRequest = () =>
+        imageRequestIds.get(imageElement) === requestId;
+
+      clearDisplayedImage(imageElement, wrapElement);
 
       if (!source) {
-        wrapElement.classList.remove("visible");
-        imageElement.removeAttribute("src");
         if (onStateChange) onStateChange(false);
-        return;
+        return false;
       }
 
-      imageElement.src = source;
+      const maxRetries = options.maxRetries ?? 2;
+      const timeoutMs = options.timeoutMs ?? 8000;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        if (!isCurrentRequest()) return false;
+
+        const imageUrl = getImageUrl(source, attempt);
+
+        const loaded = await new Promise(resolve => {
+          const loader = new Image();
+          let settled = false;
+
+          loader.decoding = "async";
+          loader.fetchPriority = "high";
+
+          const finish = success => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutId);
+            loader.onload = null;
+            loader.onerror = null;
+            resolve(success);
+          };
+
+          const timeoutId = window.setTimeout(
+            () => finish(false),
+            timeoutMs
+          );
+
+          loader.onload = () => finish(true);
+          loader.onerror = () => finish(false);
+          loader.src = imageUrl;
+        });
+
+        if (!isCurrentRequest()) return false;
+
+        if (loaded) {
+          imageElement.src = imageUrl;
+          wrapElement.classList.add("visible");
+          if (onStateChange) onStateChange(true);
+          return true;
+        }
+
+        if (attempt < maxRetries) {
+          await wait(350 * (attempt + 1));
+        }
+      }
+
+      if (isCurrentRequest()) {
+        clearDisplayedImage(imageElement, wrapElement);
+        if (onStateChange) onStateChange(false);
+      }
+
+      return false;
     }
 
     function updateSetupPreview() {
@@ -1222,6 +1341,7 @@
 
       clampSeconds(els.questionSeconds);
       clampSeconds(els.answerSeconds);
+      applyFontSizes();
 
       state.index = 0;
       state.phase = "question";
@@ -1236,7 +1356,9 @@
       renderSlide();
     }
 
-    function renderSlide() {
+    async function renderSlide() {
+      const renderToken = ++state.renderToken;
+
       clearTimers();
       els.finishScreen.classList.remove("visible");
       els.slideStage.style.display = "grid";
@@ -1248,36 +1370,62 @@
         return;
       }
 
-      const card = state.cards[state.index];
+      const cardIndex = state.index;
+      const card = state.cards[cardIndex];
       state.phase = "question";
 
-      els.slideCounter.textContent = `${state.index + 1} / ${state.cards.length}`;
+      els.slideCounter.textContent = `${cardIndex + 1} / ${state.cards.length}`;
       els.slidePhase.textContent = "QUESTION";
       els.slideQuestion.textContent = card.question;
       els.slideAnswer.textContent = card.answer;
       els.slideAnswerArea.classList.remove("visible");
 
-      const percent = ((state.index + 1) / state.cards.length) * 100;
+      const percent = ((cardIndex + 1) / state.cards.length) * 100;
       els.slideProgressBar.style.width = `${percent}%`;
 
       const imageOnly = !card.question && Boolean(card.image);
 
       els.slideQuestionArea.classList.remove("with-image", "image-only");
+      els.slideCountdown.textContent = card.image
+        ? "이미지 불러오는 중..."
+        : "";
 
-      setImage(
+      const imageVisible = await setImage(
         els.slideImage,
         els.slideImageWrap,
         card.image,
-        visible => {
-          els.slideQuestionArea.classList.toggle("with-image", visible && !imageOnly);
-          els.slideQuestionArea.classList.toggle("image-only", visible && imageOnly);
-
-          if (imageOnly && !visible) {
-            els.slideQuestion.textContent = "이미지를 불러오지 못했습니다.";
-          }
+        null,
+        {
+          maxRetries: 2,
+          timeoutMs: 8000
         }
       );
 
+      // 이미 다음 카드로 이동했거나 슬라이드가 종료됐다면
+      // 늦게 도착한 이미지 결과를 현재 화면에 적용하지 않습니다.
+      if (
+        renderToken !== state.renderToken ||
+        !state.running ||
+        state.index !== cardIndex
+      ) {
+        return;
+      }
+
+      els.slideQuestionArea.classList.toggle(
+        "with-image",
+        imageVisible && !imageOnly
+      );
+      els.slideQuestionArea.classList.toggle(
+        "image-only",
+        imageVisible && imageOnly
+      );
+
+      if (imageOnly && !imageVisible) {
+        els.slideQuestion.textContent =
+          "이미지를 불러오지 못했습니다.\n잠시 후 다시 시도해 주세요.";
+      }
+
+      // 문제 표시 시간은 이미지가 실제로 준비된 시점부터 계산합니다.
       startPhaseTimer();
     }
 
@@ -1325,6 +1473,8 @@
 
     function showFinished() {
       clearTimers();
+      state.renderToken += 1;
+      setImage(els.slideImage, els.slideImageWrap, "");
       state.running = false;
       state.paused = false;
 
@@ -1348,6 +1498,8 @@
 
     async function exitSlideshow() {
       clearTimers();
+      state.renderToken += 1;
+      setImage(els.slideImage, els.slideImageWrap, "");
       state.running = false;
       state.paused = false;
 
@@ -1430,6 +1582,14 @@
       });
     });
 
+    [els.questionFontSize, els.answerFontSize].forEach(input => {
+      input.addEventListener("input", applyFontSizes);
+      input.addEventListener("change", () => {
+        applyFontSizes();
+        if (state.cards.length > 0) rebuildCards();
+      });
+    });
+
     els.startBtn.addEventListener("click", startSlideshow);
     els.pauseBtn.addEventListener("click", togglePause);
     els.exitBtn.addEventListener("click", exitSlideshow);
@@ -1467,7 +1627,10 @@
     });
 
     window.addEventListener("beforeunload", clearTimers);
-    window.addEventListener("DOMContentLoaded", autoLoadExcel);
+    window.addEventListener("DOMContentLoaded", () => {
+      applyFontSizes();
+      autoLoadExcel();
+    });
   </script>
 </body>
 </html>
