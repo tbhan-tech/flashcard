@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>엑셀 플래시카드 슬라이드쇼</title>
+
+  <style>
+    :root {
+      --bg: #f3f5fb;
+      --panel: #ffffff;
+      --primary: #4f46e5;
+      --primary-dark: #3730a3;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #dbe1ea;
+      --danger: #b91c1c;
+      --success: #047857;
+      --shadow: 0 18px 50px rgba(31, 41, 55, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+      color: var(--text);
+    }
+
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, #e0e7ff 0, transparent 34%),
+        radial-gradient(circle at bottom right, #dbeafe 0, transparent 30%),
+        var(--bg);
+    }
+
+    button,
+    input,
+    label {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .setup-app {
+      width: min(1020px, calc(100% - 28px));
+      margin: 28px auto;
+    }
+
+    .header {
+      margin-bottom: 18px;
+    }
+
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: -0.045em;
+    }
+
+    .header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .panel {
+      padding: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field > span {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 13px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: #fff;
+    }
+
+    .check-field {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 46px;
+      padding: 0 13px;
+      border: 1px solid var(--border);
+      border-radius: 13px;
+      background: #fff;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .check-field input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
+    .file-button,
+    .start-button,
+    .small-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 16px;
+      border-radius: 13px;
+      font-weight: 900;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .file-button:hover,
+    .start-button:hover:not(:disabled),
+    .small-button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(0.98);
+    }
+
+    .file-button {
+      color: #fff;
+      background: #111827;
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    .status {
+      min-height: 24px;
+      margin-top: 15px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .status.success {
+      color: var(--success);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .data-guide {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .guide-item {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      background: #f9fafb;
+      line-height: 1.55;
+    }
+
+    .guide-item strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--primary-dark);
+    }
+
+    .preview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 34%);
+      gap: 18px;
+      min-height: 320px;
+      margin-top: 18px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: #fff;
+    }
+
+    .preview-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .preview-label {
+      margin-bottom: 16px;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+    }
+
+    .preview-question {
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      font-size: clamp(28px, 4.5vw, 48px);
+      font-weight: 900;
+      line-height: 1.35;
+      letter-spacing: -0.04em;
+    }
+
+    .preview-image-wrap {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 260px;
+      overflow: hidden;
+      border-radius: 16px;
+      background: #f3f4f6;
+    }
+
+    .preview-image-wrap.visible {
+      display: flex;
+    }
+
+    .preview-image {
+      width: 100%;
+      height: 100%;
+      max-height: 300px;
+      object-fit: contain;
+    }
+
+    .bottom-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    .loaded-info {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .start-button {
+      min-width: 220px;
+      min-height: 54px;
+      color: #fff;
+      background: var(--primary);
+      font-size: 18px;
+    }
+
+    .help {
+      margin: 14px 2px 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+      text-align: center;
+    }
+
+    /* 슬라이드쇼 */
+    .slideshow {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      color: #fff;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(99, 102, 241, 0.22), transparent 34%),
+        radial-gradient(circle at 80% 85%, rgba(59, 130, 246, 0.17), transparent 32%),
+        #070a12;
+    }
+
+    .slideshow.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide-top {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      min-height: 64px;
+      padding: 12px 20px;
+    }
+
+    .slide-counter {
+      justify-self: start;
+      color: rgba(255, 255, 255, 0.76);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .slide-phase {
+      justify-self: center;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+    }
+
+    .slide-actions {
+      justify-self: end;
+      display: flex;
+      gap: 8px;
+    }
+
+    .slide-action {
+      min-width: 76px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 11px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.09);
+      font-weight: 800;
+      backdrop-filter: blur(8px);
+    }
+
+    .slide-progress-track {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .slide-progress-bar {
+      width: 0;
+      height: 100%;
+      background: #818cf8;
+      transition: width 0.25s ease;
+    }
+
+    .slide-stage {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      padding: clamp(18px, 3vw, 42px);
+    }
+
+    .slide-question-area {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: center;
+      justify-items: center;
+      gap: clamp(18px, 3vw, 44px);
+      text-align: center;
+    }
+
+    .slide-question-area.with-image {
+      grid-template-columns: minmax(260px, 42%) minmax(0, 1fr);
+      text-align: left;
+    }
+
+    .slide-image-wrap {
+      display: none;
+      width: 100%;
+      height: min(62vh, 720px);
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.07);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+    }
+
+    .slide-image-wrap.visible {
+      display: flex;
+    }
+
+    .slide-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .slide-question {
+      max-width: 1100px;
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      font-size: clamp(42px, 6vw, 92px);
+      font-weight: 950;
+      line-height: 1.25;
+      letter-spacing: -0.055em;
+      text-wrap: balance;
+    }
+
+    .slide-answer-area {
+      display: none;
+      width: min(1200px, 92vw);
+      margin: 22px auto 0;
+      padding: clamp(20px, 2.5vw, 34px);
+      border: 1px solid rgba(165, 180, 252, 0.35);
+      border-radius: 22px;
+      background: rgba(79, 70, 229, 0.2);
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
+
+    .slide-answer-area.visible {
+      display: block;
+      animation: reveal 0.22s ease;
+    }
+
+    .slide-answer-label {
+      margin-bottom: 8px;
+      color: #c7d2fe;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+    }
+
+    .slide-answer {
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      font-size: clamp(30px, 4vw, 58px);
+      font-weight: 900;
+      line-height: 1.35;
+    }
+
+    .slide-countdown {
+      position: absolute;
+      right: 22px;
+      bottom: 18px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .finish-screen {
+      display: none;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .finish-screen.visible {
+      display: flex;
+    }
+
+    .finish-box h2 {
+      margin: 0 0 12px;
+      font-size: clamp(42px, 7vw, 90px);
+      letter-spacing: -0.05em;
+    }
+
+    .finish-box p {
+      margin: 0 0 28px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: clamp(18px, 2vw, 26px);
+    }
+
+    .finish-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .finish-buttons button {
+      min-height: 50px;
+      padding: 0 24px;
+      border-radius: 14px;
+      color: #111827;
+      background: #fff;
+      font-weight: 900;
+    }
+
+    @keyframes reveal {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 850px) {
+      .toolbar {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .preview {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-image-wrap {
+        min-height: 210px;
+      }
+
+      .data-guide {
+        grid-template-columns: 1fr;
+      }
+
+      .slide-question-area.with-image {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(180px, 46vh) auto;
+        text-align: center;
+      }
+
+      .slide-image-wrap {
+        height: 44vh;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .setup-app {
+        width: calc(100% - 18px);
+        margin: 14px auto;
+      }
+
+      .panel {
+        padding: 14px;
+        border-radius: 18px;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .bottom-row {
+        grid-template-columns: 1fr;
+      }
+
+      .start-button {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .slide-top {
+        grid-template-columns: 1fr auto;
+      }
+
+      .slide-phase {
+        display: none;
+      }
+
+      .slide-stage {
+        padding: 14px;
+      }
+
+      .slide-question {
+        font-size: clamp(34px, 10vw, 58px);
+      }
+
+      .slide-actions .slide-action:first-child {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="setup-app">
+    <header class="header">
+      <h1>엑셀 플래시카드</h1>
+      <p>
+        A열은 문제, B열은 정답, C열은 문제 이미지 경로입니다.
+        시작을 누르면 전체화면 자동 슬라이드쇼가 실행됩니다.
+      </p>
+    </header>
+
+    <section class="panel">
+      <div class="toolbar">
+        <label class="field">
+          <span>문제 표시 시간(초)</span>
+          <input id="questionSeconds" type="number" min="0.5" max="300" step="0.5" value="3" />
+        </label>
+
+        <label class="field">
+          <span>정답 표시 시간(초)</span>
+          <input id="answerSeconds" type="number" min="0.5" max="300" step="0.5" value="3" />
+        </label>
+
+        <label class="check-field">
+          <input id="skipHeader" type="checkbox" />
+          <span>첫 행 제외</span>
+        </label>
+
+        <label class="check-field">
+          <input id="shuffleCards" type="checkbox" />
+          <span>순서 섞기</span>
+        </label>
+
+        <label class="file-button" for="fileInput">
+          엑셀 파일 선택
+        </label>
+        <input id="fileInput" type="file" accept=".xlsx" />
+      </div>
+
+      <div id="status" class="status">같은 폴더의 flash.xlsx를 자동으로 불러오는 중입니다.</div>
+
+      <div class="data-guide">
+        <div class="guide-item">
+          <strong>A열 · 문제</strong>
+          예: 대한민국의 수도는?
+        </div>
+        <div class="guide-item">
+          <strong>B열 · 정답</strong>
+          예: 서울
+        </div>
+        <div class="guide-item">
+          <strong>C열 · 이미지(선택)</strong>
+          예: images/seoul.jpg 또는 인터넷 이미지 URL
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="preview-text">
+          <div class="preview-label">PREVIEW</div>
+          <div id="previewQuestion" class="preview-question">
+            엑셀 파일을 불러오면 첫 번째 문제가 표시됩니다.
+          </div>
+        </div>
+
+        <div id="previewImageWrap" class="preview-image-wrap">
+          <img id="previewImage" class="preview-image" alt="문제 이미지 미리보기" />
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <div id="loadedInfo" class="loaded-info">
+          아직 사용할 수 있는 카드가 없습니다.
+        </div>
+        <button id="startBtn" class="start-button" type="button" disabled>
+          전체화면으로 시작
+        </button>
+      </div>
+
+      <p class="help">
+        슬라이드쇼 중 스페이스/Enter: 정답 보기 · 오른쪽 방향키: 다음 · 왼쪽 방향키: 이전 · P: 일시정지 · Esc: 종료
+      </p>
+    </section>
+  </main>
+
+  <section id="slideshow" class="slideshow" aria-live="polite">
+    <div class="slide-top">
+      <div id="slideCounter" class="slide-counter">0 / 0</div>
+      <div id="slidePhase" class="slide-phase">QUESTION</div>
+      <div class="slide-actions">
+        <button id="pauseBtn" class="slide-action" type="button">일시정지</button>
+        <button id="exitBtn" class="slide-action" type="button">종료</button>
+      </div>
+
+      <div class="slide-progress-track">
+        <div id="slideProgressBar" class="slide-progress-bar"></div>
+      </div>
+    </div>
+
+    <div id="slideStage" class="slide-stage">
+      <div id="slideQuestionArea" class="slide-question-area">
+        <div id="slideImageWrap" class="slide-image-wrap">
+          <img id="slideImage" class="slide-image" alt="문제 이미지" />
+        </div>
+
+        <div id="slideQuestion" class="slide-question"></div>
+      </div>
+
+      <div id="slideAnswerArea" class="slide-answer-area">
+        <div class="slide-answer-label">ANSWER</div>
+        <div id="slideAnswer" class="slide-answer"></div>
+      </div>
+    </div>
+
+    <div id="finishScreen" class="finish-screen">
+      <div class="finish-box">
+        <h2>완료!</h2>
+        <p id="finishText">모든 카드를 확인했습니다.</p>
+        <div class="finish-buttons">
+          <button id="replayBtn" type="button">다시 시작</button>
+          <button id="finishExitBtn" type="button">설정 화면으로</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="slideCountdown" class="slide-countdown"></div>
+  </section>
+
+  <script>
+    "use strict";
+
+    const state = {
+      sourceRows: [],
+      cards: [],
+      index: 0,
+      phase: "question",
+      timerId: null,
+      countdownId: null,
+      deadline: 0,
+      remainingMs: 0,
+      paused: false,
+      running: false,
+      loadedFileName: ""
+    };
+
+    const els = {
+      questionSeconds: document.getElementById("questionSeconds"),
+      answerSeconds: document.getElementById("answerSeconds"),
+      skipHeader: document.getElementById("skipHeader"),
+      shuffleCards: document.getElementById("shuffleCards"),
+      fileInput: document.getElementById("fileInput"),
+      status: document.getElementById("status"),
+      loadedInfo: document.getElementById("loadedInfo"),
+      previewQuestion: document.getElementById("previewQuestion"),
+      previewImageWrap: document.getElementById("previewImageWrap"),
+      previewImage: document.getElementById("previewImage"),
+      startBtn: document.getElementById("startBtn"),
+
+      slideshow: document.getElementById("slideshow"),
+      slideCounter: document.getElementById("slideCounter"),
+      slidePhase: document.getElementById("slidePhase"),
+      slideProgressBar: document.getElementById("slideProgressBar"),
+      slideQuestionArea: document.getElementById("slideQuestionArea"),
+      slideQuestion: document.getElementById("slideQuestion"),
+      slideImageWrap: document.getElementById("slideImageWrap"),
+      slideImage: document.getElementById("slideImage"),
+      slideAnswerArea: document.getElementById("slideAnswerArea"),
+      slideAnswer: document.getElementById("slideAnswer"),
+      slideStage: document.getElementById("slideStage"),
+      slideCountdown: document.getElementById("slideCountdown"),
+      pauseBtn: document.getElementById("pauseBtn"),
+      exitBtn: document.getElementById("exitBtn"),
+      finishScreen: document.getElementById("finishScreen"),
+      finishText: document.getElementById("finishText"),
+      replayBtn: document.getElementById("replayBtn"),
+      finishExitBtn: document.getElementById("finishExitBtn")
+    };
+
+    function setStatus(message, type = "") {
+      els.status.textContent = message;
+      els.status.className = `status ${type}`.trim();
+    }
+
+    function normalizeCell(value) {
+      if (value === null || value === undefined) return "";
+      return String(value).trim();
+    }
+
+    function clampSeconds(input, fallback = 3) {
+      const number = Number(input.value);
+      const safe = Number.isFinite(number) ? Math.min(300, Math.max(0.5, number)) : fallback;
+      input.value = safe;
+      return safe;
+    }
+
+    function getXmlElements(parent, localName) {
+      return Array.from(parent.getElementsByTagNameNS("*", localName));
+    }
+
+    function parseXml(xmlText, fileName) {
+      const documentNode = new DOMParser().parseFromString(xmlText, "application/xml");
+      const parserError = getXmlElements(documentNode, "parsererror")[0];
+
+      if (parserError) {
+        throw new Error(`${fileName} 내용을 해석하지 못했습니다.`);
+      }
+
+      return documentNode;
+    }
+
+    function normalizeZipPath(pathValue) {
+      const parts = [];
+
+      pathValue.replace(/\\/g, "/").split("/").forEach(part => {
+        if (!part || part === ".") return;
+        if (part === "..") {
+          parts.pop();
+        } else {
+          parts.push(part);
+        }
+      });
+
+      return parts.join("/");
+    }
+
+    function resolveZipPath(baseFile, target) {
+      if (target.startsWith("/")) {
+        return normalizeZipPath(target.slice(1));
+      }
+
+      const baseParts = baseFile.split("/");
+      baseParts.pop();
+      return normalizeZipPath(`${baseParts.join("/")}/${target}`);
+    }
+
+    function findEndOfCentralDirectory(bytes, view) {
+      const minimumOffset = Math.max(0, bytes.length - 65557);
+
+      for (let offset = bytes.length - 22; offset >= minimumOffset; offset -= 1) {
+        if (view.getUint32(offset, true) === 0x06054b50) {
+          return offset;
+        }
+      }
+
+      throw new Error("올바른 .xlsx 파일이 아니거나 ZIP 구조를 읽지 못했습니다.");
+    }
+
+    function readZipDirectory(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const view = new DataView(arrayBuffer);
+      const decoder = new TextDecoder("utf-8");
+      const eocdOffset = findEndOfCentralDirectory(bytes, view);
+      const entryCount = view.getUint16(eocdOffset + 10, true);
+      const centralDirectoryOffset = view.getUint32(eocdOffset + 16, true);
+      const entries = new Map();
+      let offset = centralDirectoryOffset;
+
+      for (let i = 0; i < entryCount; i += 1) {
+        if (view.getUint32(offset, true) !== 0x02014b50) {
+          throw new Error("엑셀 파일의 ZIP 목록이 손상되었습니다.");
+        }
+
+        const compressionMethod = view.getUint16(offset + 10, true);
+        const compressedSize = view.getUint32(offset + 20, true);
+        const fileNameLength = view.getUint16(offset + 28, true);
+        const extraLength = view.getUint16(offset + 30, true);
+        const commentLength = view.getUint16(offset + 32, true);
+        const localHeaderOffset = view.getUint32(offset + 42, true);
+        const fileNameBytes = bytes.slice(offset + 46, offset + 46 + fileNameLength);
+        const fileName = decoder.decode(fileNameBytes);
+
+        entries.set(normalizeZipPath(fileName), {
+          compressionMethod,
+          compressedSize,
+          localHeaderOffset
+        });
+
+        offset += 46 + fileNameLength + extraLength + commentLength;
+      }
+
+      return { bytes, view, entries };
+    }
+
+    async function extractZipEntry(zip, fileName) {
+      const normalizedName = normalizeZipPath(fileName);
+      const entry = zip.entries.get(normalizedName);
+
+      if (!entry) return null;
+
+      const { bytes, view } = zip;
+      const localOffset = entry.localHeaderOffset;
+
+      if (view.getUint32(localOffset, true) !== 0x04034b50) {
+        throw new Error(`${normalizedName}의 ZIP 데이터가 손상되었습니다.`);
+      }
+
+      const localFileNameLength = view.getUint16(localOffset + 26, true);
+      const localExtraLength = view.getUint16(localOffset + 28, true);
+      const dataOffset = localOffset + 30 + localFileNameLength + localExtraLength;
+      const compressed = bytes.slice(dataOffset, dataOffset + entry.compressedSize);
+
+      if (entry.compressionMethod === 0) {
+        return compressed;
+      }
+
+      if (entry.compressionMethod === 8) {
+        if (typeof DecompressionStream === "undefined") {
+          throw new Error("최신 Chrome 또는 Edge에서 열어 주세요.");
+        }
+
+        const stream = new Blob([compressed])
+          .stream()
+          .pipeThrough(new DecompressionStream("deflate-raw"));
+
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+
+      throw new Error(`지원하지 않는 ZIP 압축 방식입니다. (${entry.compressionMethod})`);
+    }
+
+    async function readZipText(zip, fileName, required = true) {
+      const data = await extractZipEntry(zip, fileName);
+
+      if (!data) {
+        if (required) throw new Error(`${fileName}을 엑셀 파일에서 찾지 못했습니다.`);
+        return "";
+      }
+
+      return new TextDecoder("utf-8").decode(data);
+    }
+
+    function readSharedStrings(xmlText) {
+      if (!xmlText) return [];
+
+      const documentNode = parseXml(xmlText, "sharedStrings.xml");
+
+      return getXmlElements(documentNode, "si").map(item =>
+        getXmlElements(item, "t").map(textNode => textNode.textContent || "").join("")
+      );
+    }
+
+    function getCellText(cell, sharedStrings) {
+      const type = cell.getAttribute("t") || "";
+
+      if (type === "inlineStr") {
+        const inlineString = getXmlElements(cell, "is")[0];
+        return inlineString
+          ? getXmlElements(inlineString, "t").map(node => node.textContent || "").join("")
+          : "";
+      }
+
+      const valueNode = getXmlElements(cell, "v")[0];
+      const rawValue = valueNode?.textContent ?? "";
+
+      if (type === "s") {
+        return sharedStrings[Number(rawValue)] ?? "";
+      }
+
+      if (type === "b") {
+        return rawValue === "1" ? "TRUE" : "FALSE";
+      }
+
+      return rawValue;
+    }
+
+    function parseSheetRows(sheetXml, sharedStrings) {
+      const documentNode = parseXml(sheetXml, "worksheet.xml");
+      const rowMap = new Map();
+
+      getXmlElements(documentNode, "c").forEach(cell => {
+        const reference = cell.getAttribute("r") || "";
+        const match = /^([A-Z]+)(\d+)$/i.exec(reference);
+
+        if (!match) return;
+
+        const column = match[1].toUpperCase();
+        if (!["A", "B", "C"].includes(column)) return;
+
+        const rowNumber = Number(match[2]);
+        const row = rowMap.get(rowNumber) || ["", "", ""];
+        const columnIndex = column === "A" ? 0 : column === "B" ? 1 : 2;
+        row[columnIndex] = getCellText(cell, sharedStrings);
+        rowMap.set(rowNumber, row);
+      });
+
+      return Array.from(rowMap.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([, row]) => row);
+    }
+
+    async function findFirstWorksheetPath(zip) {
+      const workbookXml = await readZipText(zip, "xl/workbook.xml");
+      const relationshipsXml = await readZipText(zip, "xl/_rels/workbook.xml.rels");
+      const workbookDocument = parseXml(workbookXml, "workbook.xml");
+      const relationshipsDocument = parseXml(relationshipsXml, "workbook.xml.rels");
+      const firstSheet = getXmlElements(workbookDocument, "sheet")[0];
+
+      if (!firstSheet) {
+        throw new Error("엑셀 파일에 시트가 없습니다.");
+      }
+
+      const relationshipId =
+        firstSheet.getAttribute("r:id") ||
+        firstSheet.getAttributeNS(
+          "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+          "id"
+        );
+
+      const relationship = getXmlElements(relationshipsDocument, "Relationship")
+        .find(item => item.getAttribute("Id") === relationshipId);
+
+      if (!relationship) {
+        throw new Error("첫 번째 시트의 위치를 찾지 못했습니다.");
+      }
+
+      return resolveZipPath("xl/workbook.xml", relationship.getAttribute("Target") || "");
+    }
+
+    async function parseWorkbook(arrayBuffer) {
+      const zip = readZipDirectory(arrayBuffer);
+      const worksheetPath = await findFirstWorksheetPath(zip);
+      const sharedStringsXml = await readZipText(zip, "xl/sharedStrings.xml", false);
+      const worksheetXml = await readZipText(zip, worksheetPath);
+      const sharedStrings = readSharedStrings(sharedStringsXml);
+
+      return parseSheetRows(worksheetXml, sharedStrings)
+        .map(row => [
+          normalizeCell(row[0]),
+          normalizeCell(row[1]),
+          normalizeCell(row[2])
+        ])
+        .filter(([question, answer, image]) => question !== "" || answer !== "" || image !== "");
+    }
+
+    function shuffleArray(items) {
+      const result = [...items];
+
+      for (let i = result.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+
+      return result;
+    }
+
+    function rebuildCards() {
+      let rows = [...state.sourceRows];
+
+      if (els.skipHeader.checked && rows.length > 0) {
+        rows = rows.slice(1);
+      }
+
+      state.cards = rows.map(([question, answer, image], rowIndex) => ({
+        question: question || `(A열 빈칸 · ${rowIndex + 1}번째 카드)`,
+        answer: answer || "(B열에 정답이 없습니다.)",
+        image
+      }));
+
+      if (els.shuffleCards.checked) {
+        state.cards = shuffleArray(state.cards);
+      }
+
+      state.index = 0;
+      state.phase = "question";
+      updateSetupPreview();
+
+      if (state.cards.length === 0) {
+        els.startBtn.disabled = true;
+        els.loadedInfo.textContent = "사용할 수 있는 카드가 없습니다.";
+        setStatus("A열, B열 또는 C열 데이터를 확인해 주세요.", "error");
+        return;
+      }
+
+      els.startBtn.disabled = false;
+      const imageCount = state.cards.filter(card => card.image).length;
+      els.loadedInfo.textContent =
+        `${state.cards.length}개 카드 · 이미지 포함 ${imageCount}개 · ` +
+        `${els.questionSeconds.value}초 후 정답, 정답 ${els.answerSeconds.value}초 표시`;
+
+      setStatus(
+        `${state.loadedFileName || "엑셀 파일"}에서 ${state.cards.length}개의 카드를 불러왔습니다.`,
+        "success"
+      );
+    }
+
+    function setImage(imageElement, wrapElement, source, onStateChange) {
+      imageElement.onload = () => {
+        wrapElement.classList.add("visible");
+        if (onStateChange) onStateChange(true);
+      };
+
+      imageElement.onerror = () => {
+        wrapElement.classList.remove("visible");
+        imageElement.removeAttribute("src");
+        if (onStateChange) onStateChange(false);
+      };
+
+      if (!source) {
+        wrapElement.classList.remove("visible");
+        imageElement.removeAttribute("src");
+        if (onStateChange) onStateChange(false);
+        return;
+      }
+
+      imageElement.src = source;
+    }
+
+    function updateSetupPreview() {
+      if (state.cards.length === 0) {
+        els.previewQuestion.textContent = "엑셀 파일을 불러오면 첫 번째 문제가 표시됩니다.";
+        setImage(els.previewImage, els.previewImageWrap, "");
+        return;
+      }
+
+      const card = state.cards[0];
+      els.previewQuestion.textContent = card.question;
+      setImage(els.previewImage, els.previewImageWrap, card.image);
+    }
+
+    function clearTimers() {
+      if (state.timerId !== null) {
+        window.clearTimeout(state.timerId);
+        state.timerId = null;
+      }
+
+      if (state.countdownId !== null) {
+        window.clearInterval(state.countdownId);
+        state.countdownId = null;
+      }
+
+      state.deadline = 0;
+    }
+
+    function phaseDurationMs() {
+      if (state.phase === "answer") {
+        return clampSeconds(els.answerSeconds) * 1000;
+      }
+
+      return clampSeconds(els.questionSeconds) * 1000;
+    }
+
+    function startPhaseTimer(durationMs = phaseDurationMs()) {
+      clearTimers();
+
+      if (!state.running || state.paused || state.index >= state.cards.length) {
+        return;
+      }
+
+      state.remainingMs = durationMs;
+      state.deadline = Date.now() + durationMs;
+      updateCountdown();
+
+      state.countdownId = window.setInterval(updateCountdown, 100);
+      state.timerId = window.setTimeout(() => {
+        if (state.phase === "question") {
+          showAnswer();
+        } else {
+          goNext();
+        }
+      }, durationMs);
+    }
+
+    function updateCountdown() {
+      if (!state.running || state.index >= state.cards.length) {
+        els.slideCountdown.textContent = "";
+        return;
+      }
+
+      const remaining = state.paused
+        ? state.remainingMs
+        : Math.max(0, state.deadline - Date.now());
+
+      els.slideCountdown.textContent =
+        `${state.phase === "question" ? "정답까지" : "다음 문제까지"} ${(remaining / 1000).toFixed(1)}초`;
+    }
+
+    async function requestFullscreenSafe() {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+      } catch (error) {
+        console.warn("전체화면 전환 실패:", error);
+      }
+    }
+
+    async function startSlideshow() {
+      if (state.cards.length === 0) return;
+
+      clampSeconds(els.questionSeconds);
+      clampSeconds(els.answerSeconds);
+
+      state.index = 0;
+      state.phase = "question";
+      state.paused = false;
+      state.running = true;
+
+      els.pauseBtn.textContent = "일시정지";
+      els.slideshow.classList.add("active");
+      document.body.style.overflow = "hidden";
+
+      await requestFullscreenSafe();
+      renderSlide();
+    }
+
+    function renderSlide() {
+      clearTimers();
+      els.finishScreen.classList.remove("visible");
+      els.slideStage.style.display = "grid";
+
+      if (!state.running || state.cards.length === 0) return;
+
+      if (state.index >= state.cards.length) {
+        showFinished();
+        return;
+      }
+
+      const card = state.cards[state.index];
+      state.phase = "question";
+
+      els.slideCounter.textContent = `${state.index + 1} / ${state.cards.length}`;
+      els.slidePhase.textContent = "QUESTION";
+      els.slideQuestion.textContent = card.question;
+      els.slideAnswer.textContent = card.answer;
+      els.slideAnswerArea.classList.remove("visible");
+
+      const percent = ((state.index + 1) / state.cards.length) * 100;
+      els.slideProgressBar.style.width = `${percent}%`;
+
+      setImage(
+        els.slideImage,
+        els.slideImageWrap,
+        card.image,
+        visible => els.slideQuestionArea.classList.toggle("with-image", visible)
+      );
+
+      startPhaseTimer();
+    }
+
+    function showAnswer() {
+      if (!state.running || state.index >= state.cards.length || state.phase === "answer") {
+        return;
+      }
+
+      clearTimers();
+      state.phase = "answer";
+      els.slidePhase.textContent = "ANSWER";
+      els.slideAnswerArea.classList.add("visible");
+      startPhaseTimer();
+    }
+
+    function goNext() {
+      if (!state.running) return;
+
+      state.index += 1;
+      renderSlide();
+    }
+
+    function goPrevious() {
+      if (!state.running || state.cards.length === 0) return;
+
+      state.index = Math.max(0, state.index - 1);
+      renderSlide();
+    }
+
+    function togglePause() {
+      if (!state.running || state.index >= state.cards.length) return;
+
+      if (!state.paused) {
+        state.remainingMs = Math.max(0, state.deadline - Date.now());
+        state.paused = true;
+        clearTimers();
+        els.pauseBtn.textContent = "계속";
+        els.slideCountdown.textContent = "일시정지";
+      } else {
+        state.paused = false;
+        els.pauseBtn.textContent = "일시정지";
+        startPhaseTimer(Math.max(100, state.remainingMs || phaseDurationMs()));
+      }
+    }
+
+    function showFinished() {
+      clearTimers();
+      state.running = false;
+      state.paused = false;
+
+      els.slideStage.style.display = "none";
+      els.finishScreen.classList.add("visible");
+      els.finishText.textContent = `총 ${state.cards.length}개의 카드를 모두 확인했습니다.`;
+      els.slideCounter.textContent = `${state.cards.length} / ${state.cards.length}`;
+      els.slidePhase.textContent = "COMPLETE";
+      els.slideProgressBar.style.width = "100%";
+      els.slideCountdown.textContent = "";
+    }
+
+    function replay() {
+      state.index = 0;
+      state.phase = "question";
+      state.running = true;
+      state.paused = false;
+      els.pauseBtn.textContent = "일시정지";
+      renderSlide();
+    }
+
+    async function exitSlideshow() {
+      clearTimers();
+      state.running = false;
+      state.paused = false;
+
+      els.slideshow.classList.remove("active");
+      els.finishScreen.classList.remove("visible");
+      els.slideStage.style.display = "grid";
+      document.body.style.overflow = "";
+
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+      } catch (error) {
+        console.warn("전체화면 종료 실패:", error);
+      }
+    }
+
+    async function loadArrayBuffer(arrayBuffer, fileName) {
+      try {
+        const rows = await parseWorkbook(arrayBuffer);
+
+        if (rows.length === 0) {
+          throw new Error("A열, B열, C열에서 데이터를 찾지 못했습니다.");
+        }
+
+        state.sourceRows = rows;
+        state.loadedFileName = fileName;
+        rebuildCards();
+      } catch (error) {
+        console.error(error);
+        state.sourceRows = [];
+        state.cards = [];
+        els.startBtn.disabled = true;
+        updateSetupPreview();
+        els.loadedInfo.textContent = "엑셀 파일을 읽지 못했습니다.";
+        setStatus(error.message || "엑셀 파일을 읽는 중 오류가 발생했습니다.", "error");
+      }
+    }
+
+    async function autoLoadExcel() {
+      try {
+        const response = await fetch("./flash.xlsx", { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error(`flash.xlsx 불러오기 실패 (${response.status})`);
+        }
+
+        const arrayBuffer = await response.arrayBuffer();
+        await loadArrayBuffer(arrayBuffer, "flash.xlsx");
+      } catch (error) {
+        console.warn(error);
+        setStatus(
+          "브라우저 보안상 자동 불러오기가 차단될 수 있습니다. ‘엑셀 파일 선택’을 눌러 flash.xlsx를 선택해 주세요.",
+          "error"
+        );
+      }
+    }
+
+    els.fileInput.addEventListener("change", async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const arrayBuffer = await file.arrayBuffer();
+      await loadArrayBuffer(arrayBuffer, file.name);
+      event.target.value = "";
+    });
+
+    els.skipHeader.addEventListener("change", () => {
+      if (state.sourceRows.length > 0) rebuildCards();
+    });
+
+    els.shuffleCards.addEventListener("change", () => {
+      if (state.sourceRows.length > 0) rebuildCards();
+    });
+
+    [els.questionSeconds, els.answerSeconds].forEach(input => {
+      input.addEventListener("change", () => {
+        clampSeconds(input);
+        if (state.cards.length > 0) rebuildCards();
+      });
+    });
+
+    els.startBtn.addEventListener("click", startSlideshow);
+    els.pauseBtn.addEventListener("click", togglePause);
+    els.exitBtn.addEventListener("click", exitSlideshow);
+    els.replayBtn.addEventListener("click", replay);
+    els.finishExitBtn.addEventListener("click", exitSlideshow);
+
+    document.addEventListener("keydown", event => {
+      if (!els.slideshow.classList.contains("active")) return;
+
+      if (["Space", "Enter", "ArrowRight", "ArrowLeft"].includes(event.code)) {
+        event.preventDefault();
+      }
+
+      if (event.code === "Space" || event.code === "Enter") {
+        if (state.phase === "question") {
+          showAnswer();
+        } else {
+          goNext();
+        }
+      } else if (event.code === "ArrowRight") {
+        goNext();
+      } else if (event.code === "ArrowLeft") {
+        goPrevious();
+      } else if (event.code === "KeyP") {
+        togglePause();
+      } else if (event.code === "Escape") {
+        exitSlideshow();
+      }
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement && els.slideshow.classList.contains("active")) {
+        exitSlideshow();
+      }
+    });
+
+    window.addEventListener("beforeunload", clearTimers);
+    window.addEventListener("DOMContentLoaded", autoLoadExcel);
+  </script>
+</body>
+</html>
