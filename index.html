@@ -314,6 +314,10 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
+      overscroll-behavior: none;
+      touch-action: pan-y;
+      -webkit-user-select: none;
+      user-select: none;
       color: #fff;
       background:
         radial-gradient(circle at 20% 15%, rgba(99, 102, 241, 0.22), transparent 34%),
@@ -442,6 +446,9 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
+      -webkit-user-drag: none;
+      user-select: none;
+      pointer-events: none;
     }
 
     .slide-question {
@@ -723,7 +730,8 @@
       </div>
 
       <p class="help">
-        슬라이드쇼 중 스페이스/Enter: 정답 보기 · 오른쪽 방향키: 다음 · 왼쪽 방향키: 이전 · P: 일시정지 · Esc: 종료
+        PC: 스페이스/Enter 정답 보기 · 방향키 앞뒤 이동 · P 일시정지 · Esc 종료<br />
+        모바일/태블릿: 왼쪽으로 스와이프하면 다음 · 오른쪽으로 스와이프하면 이전
       </p>
     </section>
   </main>
@@ -791,6 +799,14 @@
     };
 
     const imageRequestIds = new WeakMap();
+
+    const swipeState = {
+      active: false,
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0
+    };
 
     const els = {
       questionSeconds: document.getElementById("questionSeconds"),
@@ -1712,6 +1728,91 @@
     els.exitBtn.addEventListener("click", exitSlideshow);
     els.replayBtn.addEventListener("click", replay);
     els.finishExitBtn.addEventListener("click", exitSlideshow);
+
+    function resetSwipe() {
+      swipeState.active = false;
+      swipeState.startX = 0;
+      swipeState.startY = 0;
+      swipeState.lastX = 0;
+      swipeState.lastY = 0;
+    }
+
+    els.slideshow.addEventListener("touchstart", event => {
+      if (
+        !state.running ||
+        event.touches.length !== 1 ||
+        event.target.closest("button, input, label")
+      ) {
+        resetSwipe();
+        return;
+      }
+
+      const touch = event.touches[0];
+
+      swipeState.active = true;
+      swipeState.startX = touch.clientX;
+      swipeState.startY = touch.clientY;
+      swipeState.lastX = touch.clientX;
+      swipeState.lastY = touch.clientY;
+    }, { passive: true });
+
+    els.slideshow.addEventListener("touchmove", event => {
+      if (!swipeState.active || event.touches.length !== 1) return;
+
+      const touch = event.touches[0];
+      swipeState.lastX = touch.clientX;
+      swipeState.lastY = touch.clientY;
+
+      const deltaX = swipeState.lastX - swipeState.startX;
+      const deltaY = swipeState.lastY - swipeState.startY;
+
+      // 확실한 가로 동작일 때만 페이지 자체의 이동을 막습니다.
+      if (Math.abs(deltaX) > 12 && Math.abs(deltaX) > Math.abs(deltaY)) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+
+    els.slideshow.addEventListener("touchend", event => {
+      if (!swipeState.active) return;
+
+      const touch = event.changedTouches[0];
+
+      if (touch) {
+        swipeState.lastX = touch.clientX;
+        swipeState.lastY = touch.clientY;
+      }
+
+      const deltaX = swipeState.lastX - swipeState.startX;
+      const deltaY = swipeState.lastY - swipeState.startY;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+
+      // 화면 크기에 따라 55~100px 정도를 넘겨야 스와이프로 인식합니다.
+      const threshold = Math.min(
+        100,
+        Math.max(55, window.innerWidth * 0.08)
+      );
+
+      const isHorizontalSwipe =
+        absX >= threshold &&
+        absX > absY * 1.25;
+
+      resetSwipe();
+
+      if (!isHorizontalSwipe || !state.running) return;
+
+      if (deltaX < 0) {
+        // 오른쪽에서 왼쪽으로 밀기
+        goNext();
+      } else {
+        // 왼쪽에서 오른쪽으로 밀기
+        goPrevious();
+      }
+    }, { passive: true });
+
+    els.slideshow.addEventListener("touchcancel", resetSwipe, {
+      passive: true
+    });
 
     document.addEventListener("keydown", event => {
       if (!els.slideshow.classList.contains("active")) return;
