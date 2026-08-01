@@ -232,7 +232,7 @@
       white-space: pre-wrap;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      font-size: clamp(28px, 4.5vw, var(--preview-question-font-size));
+      font-size: var(--preview-question-font-size);
       font-weight: 900;
       line-height: 1.35;
       letter-spacing: -0.04em;
@@ -452,11 +452,13 @@
     }
 
     .slide-question {
-      max-width: 1100px;
+      max-width: min(1100px, 96vw);
+      max-height: 68vh;
+      overflow: auto;
       white-space: pre-wrap;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      font-size: clamp(32px, 8vw, var(--question-font-size));
+      font-size: var(--question-font-size);
       font-weight: 950;
       line-height: 1.25;
       letter-spacing: -0.055em;
@@ -489,10 +491,12 @@
     }
 
     .slide-answer {
+      max-height: 34vh;
+      overflow: auto;
       white-space: pre-wrap;
       word-break: keep-all;
       overflow-wrap: anywhere;
-      font-size: clamp(24px, 7vw, var(--answer-font-size));
+      font-size: var(--answer-font-size);
       font-weight: 900;
       line-height: 1.35;
     }
@@ -622,7 +626,7 @@
       }
 
       .slide-question {
-        font-size: clamp(30px, 12vw, var(--question-font-size));
+        font-size: var(--question-font-size);
       }
 
       .slide-actions .slide-action:first-child {
