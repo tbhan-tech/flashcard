@@ -691,6 +691,11 @@
         </label>
 
         <label class="check-field">
+          <input id="bgmEnabled" type="checkbox" checked />
+          <span>배경음악</span>
+        </label>
+
+        <label class="check-field">
           <input id="infiniteLoop" type="checkbox" />
           <span>무한 반복</span>
         </label>
@@ -823,7 +828,12 @@
       running: false,
       loadedFileName: "",
       renderToken: 0,
-      speechToken: 0
+      speechToken: 0,
+      audioContext: null,
+      bgmGain: null,
+      bgmTimerId: null,
+      bgmStep: 0,
+      bgmPhase: ""
     };
 
     const imageRequestIds = new WeakMap();
@@ -843,6 +853,7 @@
       answerFontSize: document.getElementById("answerFontSize"),
       skipHeader: document.getElementById("skipHeader"),
       shuffleCards: document.getElementById("shuffleCards"),
+      bgmEnabled: document.getElementById("bgmEnabled"),
       infiniteLoop: document.getElementById("infiniteLoop"),
       ttsEnabled: document.getElementById("ttsEnabled"),
       ttsRate: document.getElementById("ttsRate"),
@@ -891,6 +902,189 @@
       const safe = Number.isFinite(number) ? Math.min(300, Math.max(0.5, number)) : fallback;
       input.value = safe;
       return safe;
+    }
+
+    async function ensureBgmContext() {
+      if (!els.bgmEnabled.checked) return false;
+
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        setStatus(
+          "이 브라우저는 배경음악 기능을 지원하지 않습니다.",
+          "error"
+        );
+        return false;
+      }
+
+      if (!state.audioContext) {
+        state.audioContext = new AudioContextClass();
+        state.bgmGain = state.audioContext.createGain();
+        state.bgmGain.gain.value = 0.0001;
+        state.bgmGain.connect(state.audioContext.destination);
+      }
+
+      if (state.audioContext.state === "suspended") {
+        try {
+          await state.audioContext.resume();
+        } catch (error) {
+          console.warn("오디오 재생 시작 실패:", error);
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    function clearBgmTimer() {
+      if (state.bgmTimerId !== null) {
+        window.clearTimeout(state.bgmTimerId);
+        state.bgmTimerId = null;
+      }
+    }
+
+    function setBgmVolume(volume, rampSeconds = 0.05) {
+      if (!state.audioContext || !state.bgmGain) return;
+
+      const now = state.audioContext.currentTime;
+      const gain = state.bgmGain.gain;
+
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(Math.max(0.0001, gain.value), now);
+      gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, volume),
+        now + rampSeconds
+      );
+    }
+
+    function playSynthTone(
+      frequency,
+      duration = 0.12,
+      volume = 0.12,
+      type = "triangle",
+      delay = 0
+    ) {
+      if (
+        !state.audioContext ||
+        !state.bgmGain ||
+        state.audioContext.state !== "running"
+      ) {
+        return;
+      }
+
+      const context = state.audioContext;
+      const start = context.currentTime + delay;
+      const end = start + duration;
+
+      const oscillator = context.createOscillator();
+      const envelope = context.createGain();
+
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+
+      envelope.gain.setValueAtTime(0.0001, start);
+      envelope.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, volume),
+        start + Math.min(0.025, duration * 0.2)
+      );
+      envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+
+      oscillator.connect(envelope);
+      envelope.connect(state.bgmGain);
+
+      oscillator.start(start);
+      oscillator.stop(end + 0.02);
+
+      oscillator.onended = () => {
+        try {
+          oscillator.disconnect();
+          envelope.disconnect();
+        } catch (error) {
+          // 이미 해제된 경우 무시
+        }
+      };
+    }
+
+    function playQuestionPulse(step, totalSeconds) {
+      // D minor 계열의 짧은 상승 패턴으로 퀴즈쇼 느낌을 냅니다.
+      const notes = [220.00, 261.63, 293.66, 329.63, 349.23, 392.00, 440.00];
+      const note = notes[step % notes.length];
+
+      playSynthTone(note, 0.10, 0.15, "triangle");
+
+      // 두 박자마다 낮은 베이스를 추가해 긴장감을 줍니다.
+      if (step % 2 === 0) {
+        playSynthTone(note / 2, 0.18, 0.08, "sine");
+      }
+
+      // 시간이 긴 문제에서는 중간중간 높은 틱을 추가합니다.
+      if (totalSeconds >= 3.5 && step % 3 === 2) {
+        playSynthTone(note * 2, 0.06, 0.055, "square", 0.04);
+      }
+    }
+
+    function playAnswerSting() {
+      // 정답 공개 시 긴장음 대신 밝은 짧은 화음으로 전환합니다.
+      playSynthTone(523.25, 0.34, 0.10, "sine", 0.00);
+      playSynthTone(659.25, 0.38, 0.085, "sine", 0.04);
+      playSynthTone(783.99, 0.44, 0.075, "sine", 0.08);
+    }
+
+    async function startBgmForPhase(phase) {
+      clearBgmTimer();
+      state.bgmPhase = phase;
+      state.bgmStep = 0;
+
+      if (!state.running || state.paused || !els.bgmEnabled.checked) {
+        setBgmVolume(0.0001);
+        return;
+      }
+
+      const ready = await ensureBgmContext();
+      if (!ready || state.bgmPhase !== phase) return;
+
+      if (phase === "answer") {
+        // TTS를 방해하지 않도록 정답 구간에서는 볼륨을 크게 낮춥니다.
+        setBgmVolume(0.055, 0.04);
+        playAnswerSting();
+        return;
+      }
+
+      setBgmVolume(0.16, 0.06);
+
+      const totalSeconds = Math.max(
+        0.5,
+        Number(els.questionSeconds.value) || 2
+      );
+
+      // 문제 시간이 길면 박자를 조금 느리게, 짧으면 조금 빠르게 자동 조절합니다.
+      const intervalMs = Math.round(
+        Math.min(520, Math.max(280, (totalSeconds * 1000) / 7))
+      );
+
+      const tick = () => {
+        if (
+          !state.running ||
+          state.paused ||
+          !els.bgmEnabled.checked ||
+          state.bgmPhase !== "question"
+        ) {
+          return;
+        }
+
+        playQuestionPulse(state.bgmStep, totalSeconds);
+        state.bgmStep += 1;
+        state.bgmTimerId = window.setTimeout(tick, intervalMs);
+      };
+
+      tick();
+    }
+
+    function stopBgm() {
+      clearBgmTimer();
+      state.bgmPhase = "";
+      setBgmVolume(0.0001, 0.05);
     }
 
     function clampTtsRate() {
@@ -1278,6 +1472,7 @@
         `${state.cards.length}개 카드 · 이미지 포함 ${imageCount}개 · ` +
         `${els.questionSeconds.value}초 후 정답, 정답 ${els.answerSeconds.value}초 표시 · ` +
         `문제 ${els.questionFontSize.value}pt / 정답 ${els.answerFontSize.value}pt · ` +
+        `${els.bgmEnabled.checked ? "BGM · " : ""}` +
         `${els.infiniteLoop.checked ? "무한 반복 · " : ""}` +
         `음성 ${els.ttsEnabled.checked ? "사용" : "사용 안 함"}`;
 
@@ -1490,6 +1685,12 @@
       state.paused = false;
       state.running = true;
 
+      // 모바일 브라우저의 자동재생 제한을 피하기 위해
+      // 사용자의 시작 버튼 클릭 안에서 오디오 엔진을 활성화합니다.
+      if (els.bgmEnabled.checked) {
+        await ensureBgmContext();
+      }
+
       els.pauseBtn.textContent = "일시정지";
       els.slideshow.classList.add("active");
       document.body.style.overflow = "hidden";
@@ -1567,7 +1768,17 @@
           "이미지를 불러오지 못했습니다.\n잠시 후 다시 시도해 주세요.";
       }
 
-      // 문제 표시 시간은 이미지가 실제로 준비된 시점부터 계산합니다.
+      // 문제 표시 시간과 배경음악은 이미지가 실제로 준비된 시점부터 시작합니다.
+      await startBgmForPhase("question");
+
+      if (
+        renderToken !== state.renderToken ||
+        !state.running ||
+        state.index !== cardIndex
+      ) {
+        return;
+      }
+
       startPhaseTimer();
     }
 
@@ -1582,6 +1793,8 @@
       els.slideAnswerArea.classList.add("visible");
 
       const currentCard = state.cards[state.index];
+
+      startBgmForPhase("answer");
       speakAnswer(currentCard?.answer || "");
 
       startPhaseTimer();
@@ -1621,11 +1834,13 @@
         state.remainingMs = Math.max(0, state.deadline - Date.now());
         state.paused = true;
         clearTimers();
+        stopBgm();
         els.pauseBtn.textContent = "계속";
         els.slideCountdown.textContent = "일시정지";
       } else {
         state.paused = false;
         els.pauseBtn.textContent = "일시정지";
+        startBgmForPhase(state.phase);
         startPhaseTimer(Math.max(100, state.remainingMs || phaseDurationMs()));
       }
     }
@@ -1633,6 +1848,7 @@
     function showFinished() {
       clearTimers();
       stopSpeech();
+      stopBgm();
       state.renderToken += 1;
       setImage(els.slideImage, els.slideImageWrap, "");
       state.running = false;
@@ -1660,6 +1876,7 @@
     async function exitSlideshow() {
       clearTimers();
       stopSpeech();
+      stopBgm();
       state.renderToken += 1;
       setImage(els.slideImage, els.slideImageWrap, "");
       state.running = false;
@@ -1934,6 +2151,17 @@
       });
     });
 
+    els.bgmEnabled.addEventListener("change", async () => {
+      if (!els.bgmEnabled.checked) {
+        stopBgm();
+      } else if (state.running && !state.paused) {
+        await ensureBgmContext();
+        startBgmForPhase(state.phase);
+      }
+
+      if (state.cards.length > 0) rebuildCards();
+    });
+
     els.infiniteLoop.addEventListener("change", () => {
       if (state.cards.length > 0) rebuildCards();
     });
@@ -2075,6 +2303,11 @@
     window.addEventListener("beforeunload", () => {
       clearTimers();
       stopSpeech();
+      stopBgm();
+
+      if (state.audioContext) {
+        state.audioContext.close().catch(() => {});
+      }
     });
     window.addEventListener("DOMContentLoaded", () => {
       applyFontSizes();
