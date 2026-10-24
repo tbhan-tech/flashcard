@@ -19,6 +19,7 @@
       --shadow: 0 18px 50px rgba(31, 41, 55, 0.14);
       --question-font-size: 71pt;
       --answer-font-size: 46pt;
+      --answer-detail-font-size: 25pt;
       --preview-question-font-size: 38pt;
     }
 
@@ -513,6 +514,26 @@
       line-height: 1.35;
     }
 
+    .slide-answer-detail {
+      display: none;
+      max-height: 22vh;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(199, 210, 254, 0.22);
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: keep-all;
+      overflow-wrap: anywhere;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: var(--answer-detail-font-size);
+      font-weight: 600;
+      line-height: 1.45;
+    }
+
+    .slide-answer-detail.visible {
+      display: block;
+    }
+
     .slide-countdown {
       position: absolute;
       right: 22px;
@@ -795,6 +816,7 @@
       <div id="slideAnswerArea" class="slide-answer-area">
         <div class="slide-answer-label">ANSWER</div>
         <div id="slideAnswer" class="slide-answer"></div>
+        <div id="slideAnswerDetail" class="slide-answer-detail"></div>
       </div>
     </div>
 
@@ -877,6 +899,7 @@
       slideImage: document.getElementById("slideImage"),
       slideAnswerArea: document.getElementById("slideAnswerArea"),
       slideAnswer: document.getElementById("slideAnswer"),
+      slideAnswerDetail: document.getElementById("slideAnswerDetail"),
       slideStage: document.getElementById("slideStage"),
       slideCountdown: document.getElementById("slideCountdown"),
       pauseBtn: document.getElementById("pauseBtn"),
@@ -1181,10 +1204,12 @@
     function applyFontSizes() {
       const questionSize = clampFontSize(els.questionFontSize, 12, 150, 71);
       const answerSize = clampFontSize(els.answerFontSize, 12, 120, 46);
+      const answerDetailSize = Math.max(11, Math.round(answerSize * 0.55));
       const previewSize = Math.max(16, Math.round(questionSize * 0.54));
 
       document.documentElement.style.setProperty("--question-font-size", `${questionSize}pt`);
       document.documentElement.style.setProperty("--answer-font-size", `${answerSize}pt`);
+      document.documentElement.style.setProperty("--answer-detail-font-size", `${answerDetailSize}pt`);
       document.documentElement.style.setProperty("--preview-question-font-size", `${previewSize}pt`);
     }
 
@@ -1369,11 +1394,15 @@
         if (!match) return;
 
         const column = match[1].toUpperCase();
-        if (!["A", "B", "C"].includes(column)) return;
+        if (!["A", "B", "C", "D"].includes(column)) return;
 
         const rowNumber = Number(match[2]);
-        const row = rowMap.get(rowNumber) || ["", "", ""];
-        const columnIndex = column === "A" ? 0 : column === "B" ? 1 : 2;
+        const row = rowMap.get(rowNumber) || ["", "", "", ""];
+        const columnIndex =
+          column === "A" ? 0 :
+          column === "B" ? 1 :
+          column === "C" ? 2 : 3;
+
         row[columnIndex] = getCellText(cell, sharedStrings);
         rowMap.set(rowNumber, row);
       });
@@ -1422,7 +1451,8 @@
         .map(row => [
           normalizeCell(row[0]),
           normalizeCell(row[1]),
-          normalizeCell(row[2])
+          normalizeCell(row[2]),
+          normalizeCell(row[3])
         ])
         .filter(([question, answer, image]) => question !== "" || answer !== "" || image !== "");
     }
@@ -1445,10 +1475,11 @@
         rows = rows.slice(1);
       }
 
-      state.cards = rows.map(([question, answer, image], rowIndex) => ({
+      state.cards = rows.map(([question, answer, image, detail], rowIndex) => ({
         question: question || (image ? "" : `(A열 빈칸 · ${rowIndex + 1}번째 카드)`),
         answer: answer || "(B열에 정답이 없습니다.)",
-        image
+        image,
+        detail
       }));
 
       if (els.shuffleCards.checked) {
@@ -1462,7 +1493,7 @@
       if (state.cards.length === 0) {
         els.startBtn.disabled = true;
         els.loadedInfo.textContent = "사용할 수 있는 카드가 없습니다.";
-        setStatus("A열, B열 또는 C열 데이터를 확인해 주세요.", "error");
+        setStatus("A열, B열, C열 또는 D열 데이터를 확인해 주세요.", "error");
         return;
       }
 
@@ -1721,6 +1752,8 @@
       els.slidePhase.textContent = "QUESTION";
       els.slideQuestion.textContent = card.question;
       els.slideAnswer.textContent = card.answer;
+      els.slideAnswerDetail.textContent = card.detail || "";
+      els.slideAnswerDetail.classList.toggle("visible", Boolean(card.detail));
       els.slideAnswerArea.classList.remove("visible");
 
       const percent = ((cardIndex + 1) / state.cards.length) * 100;
